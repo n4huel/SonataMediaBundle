@@ -338,6 +338,8 @@ class SonataMediaExtension extends Extension implements PrependExtensionInterfac
                 ->replaceArgument(1, $config['cdn']['cloudfront']['key'])
                 ->replaceArgument(2, $config['cdn']['cloudfront']['secret'])
                 ->replaceArgument(3, $config['cdn']['cloudfront']['distribution_id'])
+                // Workaround to support `aws/aws-sdk-php:^3.0`.
+                ->replaceArgument(4, $config['cdn']['cloudfront']['region'])
             ;
         } else {
             $container->removeDefinition('sonata.media.cdn.cloudfront');

@@ -15,6 +15,9 @@ namespace Sonata\MediaBundle\CDN;
 
 use Aws\CloudFront\CloudFrontClient;
 use Aws\CloudFront\Exception\CloudFrontException;
+use Aws\Credentials\CredentialProvider;
+use Aws\Credentials\Credentials;
+use Aws\Sdk;
 
 /**
  * From http://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html.
@@ -77,17 +80,24 @@ class CloudFront implements CDNInterface
     protected $client;
 
     /**
+     * @var string
+     */
+    protected $region;
+
+    /**
      * @param string $path
      * @param string $key
      * @param string $secret
      * @param string $distributionId
+     * @param string $region
      */
-    public function __construct($path, $key, $secret, $distributionId)
+    public function __construct($path, $key, $secret, $distributionId, $region)
     {
         $this->path = $path;
         $this->key = $key;
         $this->secret = $secret;
         $this->distributionId = $distributionId;
+        $this->region = $region;
     }
 
     public function getPath($relativePath, $isFlushable = false)
@@ -124,14 +134,16 @@ class CloudFront implements CDNInterface
         try {
             $result = $this->getClient()->createInvalidation([
                 'DistributionId' => $this->distributionId,
-                'Paths' => [
-                    'Quantity' => \count($normalizedPaths),
-                    'Items' => $normalizedPaths,
+                'InvalidationBatch' => [
+                    'CallerReference' => $this->getCallerReference($normalizedPaths),
+                    'Paths' => [
+                        'Quantity' => \count($normalizedPaths),
+                        'Items' => $normalizedPaths,
+                    ],
                 ],
-                'CallerReference' => $this->getCallerReference($normalizedPaths),
             ]);
 
-            if (!\in_array($status = $result->get('Status'), ['Completed', 'InProgress'], true)) {
+            if (!\in_array($status = $result->get('Invalidation')['Status'], ['Completed', 'InProgress'], true)) {
                 throw new \RuntimeException('Unable to flush : '.$status);
             }
 
@@ -201,9 +213,12 @@ class CloudFront implements CDNInterface
     private function getClient(): CloudFrontClient
     {
         if (!$this->client) {
-            $this->client = CloudFrontClient::factory([
-                'key' => $this->key,
-                'secret' => $this->secret,
+            $sdkCredentials = new Credentials($this->key, $this->secret);
+            $sdkClient = new Sdk(['credentials' => CredentialProvider::memoize(CredentialProvider::fromCredentials($sdkCredentials))]);
+
+            $this->client = $sdkClient->createCloudFront([
+                'region' => $this->region,
+                'version' => 'latest',
             ]);
         }
 

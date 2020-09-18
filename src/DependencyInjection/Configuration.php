@@ -163,6 +163,7 @@ class Configuration implements ConfigurationInterface
                                 ->scalarNode('distribution_id')->isRequired()->end()
                                 ->scalarNode('key')->isRequired()->end()
                                 ->scalarNode('secret')->isRequired()->end()
+                                ->scalarNode('region')->isRequired()->end()
                             ->end()
                         ->end()
 
